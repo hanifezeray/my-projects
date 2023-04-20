@@ -22,26 +22,26 @@ aws sts get-caller-identity --query Account --output text
 
 ```bash
 aws ec2 create-security-group \
-    --group-name roman_numbers_sec_grp \
+    --group-name test_roman_numbers_sec_grp \
     --description "This Sec Group is to allow ssh and http from anywhere"
 ```
 
 - We can check the security Group with these commands
 ```bash
-aws ec2 describe-security-groups --group-names roman_numbers_sec_grp
+aws ec2 describe-security-groups --group-names test_roman_numbers_sec_grp
 ```
 
 2. Create Rules of security Group
 
 ```bash
 aws ec2 authorize-security-group-ingress \
-    --group-name roman_numbers_sec_grp \
+    --group-name test_roman_numbers_sec_grp \
     --protocol tcp \
     --port 22 \
     --cidr 0.0.0.0/0
 
 aws ec2 authorize-security-group-ingress \
-    --group-name roman_numbers_sec_grp \
+    --group-name test_roman_numbers_sec_grp \
     --protocol tcp \
     --port 80 \
     --cidr 0.0.0.0/0
@@ -49,13 +49,15 @@ aws ec2 authorize-security-group-ingress \
 
 3. After creating security Groups, We'll create our EC2 which has latest AMI id. to do this, we need to find out latest AMI with AWS system manager (ssm) command
 
-- This command is to get description of latest AMI ID that we use.
+- This command is to get description of latest AMI ID (Linux 2) that we use.
 ```bash
+
 aws ssm get-parameters --names /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2 --region us-east-1
 ```
 
-- This command is to run querry to get latest AMI ID
+- This command is to run querry to get latest AMI ID (Linux 2)
 ```bash
+
 aws ssm get-parameters --names /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2 --query 'Parameters[0].[Value]' --output text
 ```
 
@@ -66,16 +68,31 @@ LATEST_AMI=$(aws ssm get-parameters --names /aws/service/ami-amazon-linux-latest
 ```
 
 - Now we can run the instance with CLI command. (Do not forget to create userdata.sh under "/home/ec2-user/" folder before run this command)
-
 ```bash
-aws ec2 run-instances --image-id $LATEST_AMI --count 1 --instance-type t2.micro --key-name mldev --security-groups roman_numbers_sec_grp --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=roman_numbers}]' --user-data file:///home/ec2-user/userdata.sh
+touch userdata.sh
+vim userdata.sh
+ #! /bin/bash
+yum update -y
+yum install python3
+pip3 install flask
+cd /home/ec2-user
+FOLDER="https://raw.githubusercontent.com/hanifezeray/my- projects/main/Project-001-Roman-Numerals-Converter/"
+wget ${FOLDER}/app.py
+mkdir templates && cd templates
+wget ${FOLDER}/templates/index.html
+wget ${FOLDER}/templates/result.html
+cd ..
+python3 app.py
+```
+```bash
+aws ec2 run-instances --image-id $LATEST_AMI --count 1 --instance-type t2.micro --key-name first-key-pair-N.virginia --security-groups roman_numbers_sec_grp --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=roman_numbers}]' --user-data file:///home/ec2-user/userdata.sh
 or
 
 aws ec2 run-instances \
     --image-id $LATEST_AMI \
     --count 1 \
     --instance-type t2.micro \
-    --key-name okt-aws # write your key-namewithout .pem \
+    --key-name okt-aws \
     --security-groups roman_numbers_sec_grp \
     --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=roman_numbers}]' \
     --user-data file:///home/ec2-user/userdata.sh
@@ -101,3 +118,8 @@ aws ec2 terminate-instances --instance-ids <We have already learned this id with
 ```bash
 aws ec2 delete-security-group --group-name roman_numbers_sec_grp
 ```
+# aws ec2 create-tags --resources i-5203422c --tags Key=Name,Value=MyInstance
+# https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-welcome.html
+# https://awscli.amazonaws.com/v2/documentation/api/latest/reference/ec2/run-instances.html
+# ResourceType=string,Tags=[{Key=string,Value=string},{Key=string,Value=string}]
+# https://aws.amazon.com/blogs/compute/query-for-the-latest-amazon-linux-ami-ids-using-aws-systems-manager-parameter-store/
